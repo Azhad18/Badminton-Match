@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Badminton Pairing</title>
+<style>
+:root{--bg:#f4f7f2;--card:#fff;--tx:#1b2a1e;--mu:#5d6b60;--ac:#1f8a4c;--ac2:#e8f5ec;--bd:#d9e2d9;--wn:#b45309;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121a14;--card:#1b261e;--tx:#e8f0e9;--mu:#9bab9e;--ac:#3ec877;--ac2:#1f3326;--bd:#2c3b30;--wn:#f0b35a}}
+:root[data-theme="dark"]{--bg:#121a14;--card:#1b261e;--tx:#e8f0e9;--mu:#9bab9e;--ac:#3ec877;--ac2:#1f3326;--bd:#2c3b30;--wn:#f0b35a}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:18px 14px 40px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.1rem;margin:0 0 10px}
+.sub{color:var(--mu);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+label{display:block;font-size:.85rem;color:var(--mu);margin-bottom:3px}
+input,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:110px;resize:vertical}
+button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:600;cursor:pointer;width:100%;margin-top:12px}
+button.sec{background:var(--ac2);color:var(--ac)}
+.info{font-size:.9rem;color:var(--mu);margin-top:8px}.warn{color:var(--wn)}
+.round{margin-bottom:12px}.rh{display:flex;justify-content:space-between;font-weight:600;margin-bottom:6px}
+.rh span{color:var(--mu);font-weight:400;font-size:.85rem}
+.m{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;cursor:pointer}
+.m.done{opacity:.45;text-decoration:line-through}
+.ct{background:var(--ac2);color:var(--ac);font-weight:700;border-radius:8px;padding:4px 8px;font-size:.8rem;white-space:nowrap}
+.tm{flex:1}.vs{color:var(--mu);font-size:.8rem;margin:0 4px}
+.rest{font-size:.85rem;color:var(--mu);margin-top:4px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>🏸 Badminton Pairing</h1>
+<p class="sub">Masukkan nama pemain, sistem tukar pasangan &amp; semua main bilangan match yang sama.</p>
+
+<div class="card">
+  <label for="names">Nama pemain (satu nama setiap baris)</label>
+  <textarea id="names" placeholder="Ali&#10;Abu&#10;Siti&#10;Ahmad&#10;..."></textarea>
+  <div class="row" style="margin-top:10px">
+    <div><label for="courts">Bilangan court</label><input id="courts" type="number" min="1" value="1"></div>
+    <div><label for="k">Match setiap pemain</label><input id="k" type="number" min="1" value="4"></div>
+    <div><label for="min">Minit/match</label><input id="min" type="number" min="1" value="15"></div>
+  </div>
+  <div class="info" id="info"></div>
+  <button id="go">Jana Jadual</button>
+</div>
+
+<div id="out" class="hide">
+  <div class="card" id="sum"></div>
+  <div id="rounds"></div>
+  <div class="card"><h2>Statistik adil</h2><div class="tw"><table id="stats"></table></div></div>
+  <button class="sec" id="again">Jana semula (susunan lain)</button>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const getNames=()=>[...new Set($('names').value.split('\n').map(s=>s.trim()).filter(Boolean))];
+
+function update(){
+  const N=getNames().length,k=+$('k').value||0,C=+$('courts').value||1;
+  let t='';
+  if(N<4){t='<span class="warn">Perlu sekurang-kurangnya 4 pemain.</span>'}
+  else{
+    const maxC=Math.floor(N/4);
+    if(N*k%4){let n=k;while(N*n%4)n++;t=`<span class="warn">${N} pemain × ${k} match tidak boleh dibahagi 4. Cuba ${n} match setiap pemain.</span>`}
+    else{const M=N*k/4,c=Math.min(C,maxC),r=Math.ceil(M/c);t=`${N} pemain · ${M} match · ${r} pusingan · ~${r*(+$('min').value||15)} minit`+(C>maxC?` (court dihadkan kepada ${maxC})`:'')}
+  }
+  $('info').innerHTML=t;
+}
+['names','k','courts','min'].forEach(i=>$(i).addEventListener('input',update));
+
+function generate(N,C,k){
+  const M=N*k/4;let best=null,bs=Infinity;
+  for(let t=0;t<300;t++){
+    const rem=Array(N).fill(k),last=Array(N).fill(-9);
+    const P=Array.from({length:N},()=>Array(N).fill(0)),O=Array.from({length:N},()=>Array(N).fill(0));
+    const rounds=[];let left=M,ok=true,score=0,r=0;
+    const cost=o=>{const[A,B]=o;let c=3*(P[A[0]][A[1]]**2+P[B[0]][B[1]]**2);for(const x of A)for(const y of B)c+=O[x][y];return c};
+    while(left>0){
+      const c=Math.min(C,left);
+      const cand=[...Array(N).keys()].filter(i=>rem[i]>0);
+      if(cand.length<4*c){ok=false;break}
+      cand.sort((a,b)=>rem[b]-rem[a]||last[a]-last[b]||Math.random()-.5);
+      const chosen=cand.slice(0,4*c);
+      let bp=null,bc=Infinity;
+      for(let s=0;s<30;s++){
+        const sh=shuffle(chosen.slice());let cc=0;const ms=[];
+        for(let m=0;m<c;m++){
+          const g=sh.slice(m*4,m*4+4);
+          const opts=[[[g[0],g[1]],[g[2],g[3]]],[[g[0],g[2]],[g[1],g[3]]],[[g[0],g[3]],[g[1],g[2]]]];
+          let bo=null,boc=Infinity;for(const o of opts){const x=cost(o);if(x<boc){boc=x;bo=o}}
+          cc+=boc;ms.push(bo);
+        }
+        if(cc<bc){bc=cc;bp=ms}
+      }
+      for(const [A,B] of bp){
+        P[A[0]][A[1]]++;P[A[1]][A[0]]++;P[B[0]][B[1]]++;P[B[1]][B[0]]++;
+        for(const x of A)for(const y of B){O[x][y]++;O[y][x]++}
+        for(const p of [...A,...B]){rem[p]--;if(last[p]===r-1)score+=1;last[p]=r}
+      }
+      score+=bc;rounds.push({ms:bp,play:new Set(chosen)});left-=c;r++;
+    }
+    if(ok&&score<bs){bs=score;best={rounds,P}}
+  }
+  return best;
+}
+
+function render(names,C,res){
+  const mins=+$('min').value||15,N=names.length;
+  const cnt=Array(N).fill(0);
+  let h='';
+  res.rounds.forEach((rd,i)=>{
+    h+=`<div class="card round"><div class="rh">Pusingan ${i+1}<span>${i*mins}–${(i+1)*mins} min</span></div>`;
+    rd.ms.forEach(([A,B],j)=>{
+      [...A,...B].forEach(p=>cnt[p]++);
+      h+=`<div class="m" onclick="this.classList.toggle('done')"><span class="ct">Court ${j+1}</span><div class="tm">${names[A[0]]} &amp; ${names[A[1]]}<span class="vs">lawan</span>${names[B[0]]} &amp; ${names[B[1]]}</div></div>`;
+    });
+    const rest=names.filter((_,p)=>!rd.play.has(p));
+    if(rest.length)h+=`<div class="rest">Rehat: ${rest.join(', ')}</div>`;
+    h+='</div>';
+  });
+  $('rounds').innerHTML=h;
+  const M=res.rounds.reduce((s,r)=>s+r.ms.length,0);
+  $('sum').innerHTML=`<h2>Ringkasan</h2>${M} match · ${res.rounds.length} pusingan · kira-kira <b>${res.rounds.length*mins} minit</b> · setiap pemain <b>${cnt[0]} match</b>.<div class="info">Tekan sesuatu match untuk tanda selesai.</div>`;
+  $('stats').innerHTML='<tr><th>Pemain</th><th>Match</th><th>Pasangan berbeza</th></tr>'+names.map((n,p)=>`<tr><td>${n}</td><td>${cnt[p]}</td><td>${res.P[p].filter(x=>x>0).length}</td></tr>`).join('');
+  $('out').classList.remove('hide');
+}
+
+function run(){
+  const names=getNames(),N=names.length,k=+$('k').value;
+  if(N<4||!k||N*k%4){update();return}
+  const C=Math.min(+$('courts').value||1,Math.floor(N/4));
+  const res=generate(N,C,k);
+  if(!res){$('info').innerHTML='<span class="warn">Gagal menjana, cuba tukar tetapan.</span>';return}
+  render(names,C,res);
+  $('out').scrollIntoView({behavior:'smooth'});
+}
+$('go').onclick=run;$('again').onclick=run;
+update();
+</script>
+</body>
+</html>
